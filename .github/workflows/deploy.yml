@@ -1,0 +1,59 @@
+name: Build and Deploy to Azure
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  ACR_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
+  RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+  CONTAINER_NAME: 'portfolio-assistant'
+  KEY_VAULT_NAME: ${{ secrets.AZURE_KEY_VAULT_NAME }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Log in to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.ACR_NAME }}.azurecr.io
+        username: ${{ secrets.AZURE_CLIENT_ID }}
+        password: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+    - name: Build and push container image to ACR
+      run: |
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }} .
+        docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }}
+        docker tag ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }} ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_NAME }}:latest
+        docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_NAME }}:latest
+
+    - name: Deploy to Azure Container Instances
+      uses: azure/aci-deploy@v1
+      with:
+        resource-group: ${{ env.RESOURCE_GROUP }}
+        image: ${{ env.ACR_NAME }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }}
+        name: ${{ env.CONTAINER_NAME }}
+        location: 'eastus'
+        ports: '5000'
+        cpu: '1'
+        memory: '1.5'
+        registry-login-server: ${{ env.ACR_NAME }}.azurecr.io
+        registry-username: ${{ secrets.AZURE_CLIENT_ID }}
+        registry-password: ${{ secrets.AZURE_CLIENT_SECRET }}
+        environment-variables: "AZURE_KEY_VAULT_NAME=${{ env.KEY_VAULT_NAME }}"
+        restart-policy: 'Always'
+        dns-name-label: 'portfolio-assistant-${{ github.sha }}'
+
+    - name: Verify deployment
+      run: |
+        echo "Application deployed successfully!"
+        echo "URL: http://portfolio-assistant-${{ github.sha }}.eastus.azurecontainer.io:5000"
