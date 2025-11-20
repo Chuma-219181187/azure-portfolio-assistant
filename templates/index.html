@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Azure Portfolio Assistant</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #0078d4; }
+        #chat-box { border: 1px solid #ddd; height: 300px; overflow-y: scroll; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+        .user { color: #0078d4; margin-bottom: 10px; }
+        .assistant { color: #107c10; margin-bottom: 10px; }
+        input[type="text"] { padding: 10px; width: 70%; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; background: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #106ebe; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Azure Portfolio Assistant</h1>
+        <p>Ask me about Azure services, DevOps, cloud architecture, or my projects!</p>
+        <div id="chat-box"></div>
+        <input type="text" id="user-input" placeholder="Ask about Azure services, cloud skills, or projects...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        // JavaScript code remains the same as previous solution
+        function addMessage(role, text) {
+            const chatBox = document.getElementById('chat-box');
+            const messageDiv = document.createElement('div');
+            messageDiv.innerHTML = `<strong>${role}:</strong> ${text}`;
+            messageDiv.className = role;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value;
+            if (!message) return;
+
+            addMessage('user', message);
+            input.value = '';
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    addMessage('assistant', data.response);
+                } else {
+                    addMessage('assistant', `Error: ${data.error}`);
+                }
+            } catch (error) {
+                addMessage('assistant', `Request failed: ${error}`);
+            }
+        }
+        
+        document.getElementById('user-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
